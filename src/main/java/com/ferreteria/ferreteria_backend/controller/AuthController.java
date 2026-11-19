@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
 public class AuthController {
 
     @Autowired
@@ -27,13 +27,20 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> registrar(@RequestBody Usuario nuevoUsuario) {
-        if (usuarioRepository.existsByEmail(nuevoUsuario.getEmail())) {
+        if (nuevoUsuario.getNombre() == null || nuevoUsuario.getNombre().isBlank()
+                || nuevoUsuario.getEmail() == null || nuevoUsuario.getEmail().isBlank()
+                || nuevoUsuario.getPassword() == null || nuevoUsuario.getPassword().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Nombre, email y password son obligatorios"));
+        }
+
+        String emailNormalizado = nuevoUsuario.getEmail().trim().toLowerCase();
+        if (usuarioRepository.existsByEmail(emailNormalizado)) {
             return ResponseEntity.badRequest().body(Map.of("error", "No se pudo completar el registro"));
         }
 
         Usuario usuario = new Usuario();
-        usuario.setNombre(nuevoUsuario.getNombre());
-        usuario.setEmail(nuevoUsuario.getEmail());
+        usuario.setNombre(nuevoUsuario.getNombre().trim());
+        usuario.setEmail(emailNormalizado);
         usuario.setPassword(passwordEncoder.encode(nuevoUsuario.getPassword()));
         usuario.setRol("CLIENTE");
 
@@ -51,7 +58,12 @@ public class AuthController {
         String email = credenciales.get("email");
         String password = credenciales.get("password");
 
-        Optional<Usuario> usuarioOpt = usuarioRepository.findByEmail(email);
+        if (email == null || email.isBlank() || password == null || password.isBlank()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Credenciales inválidas"));
+        }
+
+        Optional<Usuario> usuarioOpt = usuarioRepository.findByEmail(email.trim().toLowerCase());
 
         if (usuarioOpt.isEmpty() || !passwordEncoder.matches(password, usuarioOpt.get().getPassword())) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
